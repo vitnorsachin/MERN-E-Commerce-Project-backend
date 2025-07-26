@@ -1,0 +1,19 @@
+{
+  "workbench.list.smoothScrolling": false,
+  "editor.occurrencesHighlight": "singleFile",
+
+  "workbench.colorCustomizations": {
+    // findMatch Customizations
+    "editor.findMatchHighlightBackground":"#1dff1d",
+    "editor.findMatchForeground":"#000000",    
+    "editor.findMatchBackground":"#fc1b1b",
+    "editor.findMatchHighlightForeground":"#000000",
+    // "editor.findMatchBackground":"#000000",
+    // "editor.findMatchHighlightForeground":"#fefefe",
+
+    // selection
+    // "editor.selectionHighlightBackground":"#ba38fbe1",
+    "editor.selectionBackground":"#fcff3d",
+    "editor.selectionForeground":"#000000"
+  }
+}
