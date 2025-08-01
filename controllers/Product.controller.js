@@ -1,4 +1,4 @@
-import Product from "../model/Product.js";
+import Product from "../models/Product.model.js";
 
 
 export const createProduct = async (req, res) => {
@@ -32,7 +32,6 @@ export const fetchAllProducts = async (req, res) => {
   }
 
   const totalDocs = await query.clone().countDocuments();
-  console.log({ totalDocs });
 
   if (req.query._page && req.query._limit) {
     // pagination = {_page=4&_limit=9}
