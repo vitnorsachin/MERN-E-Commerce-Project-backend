@@ -8,7 +8,7 @@ const orderSchema = new Schema({
   user           : { type: Schema.Types.ObjectId, ref: "User", required: true },
   paymentMethod  : { type: String, required: true }, // TODO : we can add enum types
   status         : { type: String, default: "pending" },
-  selectedAddress: { type: [Schema.Types.Mixed], required: true },
+  selectedAddress: { type: Schema.Types.Mixed, required: true },
 });
 
 const virtual = orderSchema.virtual("id");

@@ -16,8 +16,9 @@ export const fetchCartByUser = async (req, res) => {
 export const addToCart = async (req, res) => {
   const cart = new Cart(req.body);
   try {
-    const newCartItem = await cart.save().populate("product");
-    res.status(201).json(newCartItem);
+    const newCartItem = await cart.save()
+    const result = await newCartItem.populate("product");
+    res.status(201).json(result);
   } catch (err) {
     console.error(err);
     res.status(400).json(err);

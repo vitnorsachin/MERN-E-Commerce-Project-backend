@@ -4,7 +4,7 @@ import User from "../models/User.model.js";
 export const fetchUserById = async (req, res) => {
   const {id} = req.params;
   try {
-    const user = await User.findById(id, `id name email role addresses`);
+    const user = await User.findById(id, `id name email addresses role`);
     if (!user) {
       res.status(404).json({message:"User Not found"})
     }

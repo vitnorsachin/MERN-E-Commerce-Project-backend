@@ -1,6 +1,5 @@
 import Product from "../models/Product.model.js";
 
-
 export const createProduct = async (req, res) => {
   const product = new Product(req.body);
   try {
@@ -14,7 +13,7 @@ export const createProduct = async (req, res) => {
 
 
 export const fetchAllProducts = async (req, res) => {
-  let query = Product.find({}); // find data from database
+  let query = Product.find({deleted: {$ne:true}}); // find data from database
 
   if (req.query.category) {
     // find(filter) = {"category":["smarphone"]}
