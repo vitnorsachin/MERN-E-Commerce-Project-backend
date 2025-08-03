@@ -2,6 +2,7 @@ import express from "express";
 import {
   createOrder,
   deleteOrder,
+  fetchAllOrders,
   fetchOrdersByUser,
   updateOrder,
 } from "../controllers/Order.controller.js";
@@ -9,7 +10,8 @@ import {
 const router = express.Router();
 
 router
-  .get("/", fetchOrdersByUser)
+  .get("/", fetchAllOrders)
+  .get("/user/:userId", fetchOrdersByUser)
   .post("/", createOrder)
   .patch("/:id", updateOrder)
   .delete("/:id", deleteOrder);

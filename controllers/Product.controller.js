@@ -13,8 +13,13 @@ export const createProduct = async (req, res) => {
 
 
 export const fetchAllProducts = async (req, res) => {
-  let query = Product.find({deleted: {$ne:true}}); // find data from database
+  let condition = {};
+  if (!req.query.admin) {
+    condition.deleted = {$ne: true }  // 👈 admin === false : then not return delete products
+    condition.stock = { $gt: 0 }; // 👈 admin === false : then not return products with stock = 0
+  } 
 
+  let query = Product.find(condition);
   if (req.query.category) {
     // find(filter) = {"category":["smarphone"]}
     query = query.find({ category: req.query.category });
