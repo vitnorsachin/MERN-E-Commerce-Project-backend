@@ -1,31 +1,40 @@
-import User from "../models/User.model.js"
+import User from "../models/User.model.js";
+import crypto from "crypto";
+import jwt from 'jsonwebtoken';
+const SECRET_KEY = 'SECRET_KEY';
+
 
 export const createUser = async (req, res) => {
-  const user = new User(req.body);
   try {
-    const doc = await user.save(); // save() method save newData into database
-    res.status(201).json({ id: doc.id, name: doc.name, email: doc.email, role: doc.role});
+    const salt = crypto.randomBytes(16);
+    crypto.pbkdf2(
+      req.body.password,
+      salt,
+      310000,
+      32,
+      "sha256",
+      async function (err, hashedPassword) {
+        const user = new User({ ...req.body, password: hashedPassword, salt });
+        const newUser = await user.save();
+
+        // 🔥 JWT only — no session
+        const token = jwt.sign(
+          { sub: newUser._id, role: newUser.role },
+          SECRET_KEY
+        );
+        res.status(201).json(token);
+      }
+    );
   } catch (err) {
     console.error(err);
     res.status(400).json(err);
   }
 };
 
-
 export const loginUser = async (req, res) => {
-  try {
-    const user = await User.findOne({email:req.body.email}).exec();
-    // TODO : this is just temporary, we will use strong password auth
-    if (!user) {
-      res.status(401).json({message:"no such user email"})
-    }
-    else if (user.password === req.body.password) {
-      // TODO : we wil make dresses independent of login
-      res.status(201).json({ id: user.id, email: user.email, role: user.role });
-    } else {
-      res.status(401).json({message:'invalid credentials'});      
-    }
-  } catch (err) {
-    res.status(400).json(err);
-  }
-}
+  res.json(req.user);
+};
+
+export const checkUser = async (req, res) => {
+  res.json({ status: "success", user: req.user});
+};

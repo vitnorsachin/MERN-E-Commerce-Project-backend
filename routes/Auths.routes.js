@@ -1,7 +1,15 @@
 import express from "express";
-import { createUser, loginUser } from "../controllers/Auth.controller.js";
+import {
+  checkUser,
+  createUser,
+  loginUser,
+} from "../controllers/Auth.controller.js";
+import passport from "passport";
 
 const router = express.Router();
-router.post("/signup", createUser).post("/login", loginUser);
+router
+  .post("/signup", createUser)
+  .post("/login", passport.authenticate("local"), loginUser)
+  .get("/check", passport.authenticate("jwt"), checkUser);
 
 export default router;
