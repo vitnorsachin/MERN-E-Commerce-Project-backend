@@ -2,9 +2,10 @@ import Cart from "../models/Cart.model.js";
 
 
 export const fetchCartByUser = async (req, res) => {
-  const { user } = req.query;
+  const { id } = req.user;
   try {
-    const cartItems = await Cart.find({ user: user }).populate("user").populate("product");
+    // const cartItems = await Cart.find({ user: user }).populate("user").populate("product");
+    const cartItems = await Cart.find({ user: id }).populate("product"); // 🟢 changes base on video
     res.status(200).json(cartItems);
   } catch (err) {
     console.error(err);
@@ -14,7 +15,8 @@ export const fetchCartByUser = async (req, res) => {
 
 
 export const addToCart = async (req, res) => {
-  const cart = new Cart(req.body);
+  const {id} = req.user;
+  const cart = new Cart({ ...req.body, user:id });
   try {
     const newCartItem = await cart.save()
     const result = await newCartItem.populate("product");

@@ -1,8 +1,7 @@
 import User from "../models/User.model.js";
 import crypto from "crypto";
-import jwt from 'jsonwebtoken';
-const SECRET_KEY = 'SECRET_KEY';
-
+import jwt from "jsonwebtoken";
+const SECRET_KEY = "SECRET_KEY";
 
 export const createUser = async (req, res) => {
   try {
@@ -17,12 +16,17 @@ export const createUser = async (req, res) => {
         const user = new User({ ...req.body, password: hashedPassword, salt });
         const newUser = await user.save();
 
-        // 🔥 JWT only — no session
         const token = jwt.sign(
-          { sub: newUser._id, role: newUser.role },
+          { sub: newUser._id, role: newUser.role },// sub keyword take my 2 hours to solve this (before "sub" it has "id")
           SECRET_KEY
         );
-        res.status(201).json(token);
+        res
+          .cookie("jwt", token, {
+            expires: new Date(Date.now() + 3600000),
+            httpOnly: true,
+          })
+          .status(201)
+          .json(token);
       }
     );
   } catch (err) {
@@ -32,9 +36,15 @@ export const createUser = async (req, res) => {
 };
 
 export const loginUser = async (req, res) => {
-  res.json(req.user);
+  res
+    .cookie("jwt", req.user.token, {
+      expires: new Date(Date.now() + 3600000),
+      httpOnly: true,
+    })
+    .status(201)
+    .json(req.user.token);
 };
 
 export const checkUser = async (req, res) => {
-  res.json({ status: "success", user: req.user});
+  res.json({ status: "success", user: req.user });
 };

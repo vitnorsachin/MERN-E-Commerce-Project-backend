@@ -1,9 +1,9 @@
 import Order from "../models/Order.model.js";
 
 export const fetchOrdersByUser = async (req, res) => {
-  const { userId } = req.params;
+  const { id } = req.user;
   try {
-    const allUserOrders = await Order.find({ user: userId });
+    const allUserOrders = await Order.find({ user: id });
     // console.log(allUserOrders)
     res.status(200).json(allUserOrders);
   } catch (err) {

@@ -8,6 +8,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import crypto from "crypto";
 import { ExtractJwt, Strategy as JwtStrategy } from "passport-jwt";
 import jwt from "jsonwebtoken";
+import cookieParser from "cookie-parser";
 
 import productsRouter from "./routes/Products.routes.js";
 import brandsRouter from "./routes/Brands.routes.js";
@@ -17,33 +18,31 @@ import authRouter from "./routes/Auths.routes.js";
 import cartRouter from "./routes/Cart.routes.js";
 import ordersRouter from "./routes/Order.routes.js";
 import User from "./models/User.model.js";
-import { isAuth, sanitizeUser } from "./services/common.service.js";
+import { cookieExtractor, isAuth, sanitizeUser } from "./services/common.service.js";
 
 const SECRET_KEY = "SECRET_KEY";
 // JWT options
 const opts = {};
-opts.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
+opts.jwtFromRequest = cookieExtractor;
 opts.secretOrKey = SECRET_KEY; // TODO : should not be in code;
 
 // middlewares
-server.use(
-  session({ secret: "keyboad cat", resave: false, saveUninitialized: false })
-);
-
+server.use(express.static('dist'));
+server.use(cookieParser());
+server.use(session({ secret: "keyboad cat", resave: false, saveUninitialized: false }));
 server.use(passport.initialize());
 server.use(passport.session());
 server.use(cors());
 server.use(express.json());
 server.use("/products", isAuth(), productsRouter);
-server.use("/brands", brandsRouter);
-server.use("/categories", categoriesRouter);
-server.use("/users", usersRouter);
+server.use("/brands", isAuth(), brandsRouter);
+server.use("/categories", isAuth(), categoriesRouter);
+server.use("/users", isAuth(), usersRouter);
 server.use("/auth", authRouter);
-server.use("/cart", cartRouter);
-server.use("/orders", ordersRouter);
+server.use("/cart", isAuth(), cartRouter);
+server.use("/orders", isAuth(), ordersRouter);
 
 // Passport Strategies
-// server.use(passport.authenticate("session"));
 passport.use(
   "local",
   new LocalStrategy(
@@ -51,6 +50,7 @@ passport.use(
     async function (email, password, done) {
       try {
         const user = await User.findOne({ email }).exec();
+        console.log(email, password, {user});
         if (!user) return done(null, false, { message: "Invalid credentials" });
         crypto.pbkdf2(
           password,
@@ -62,8 +62,8 @@ passport.use(
             if (!crypto.timingSafeEqual(user.password, hashedPassword)) {
               return done(null, false, { message: "Invalid credentials" });
             }
-            const token = jwt.sign({ sub: user._id, role: user.role }, SECRET_KEY); // 🟢 
-            done(null, token);
+            const token = jwt.sign({ sub: user._id, role: user.role }, SECRET_KEY); // sub keyword take my 2 hours to solve this (before "sub" it has "id")
+            done(null, { token });
           }
         );
       } catch (err) {
@@ -79,7 +79,7 @@ passport.use(
   new JwtStrategy(opts, async function (jwt_payload, done) {
     try {
       console.log({ jwt_payload });
-      const user = await User.findById(jwt_payload.sub); // 🟢 
+      const user = await User.findById(jwt_payload.sub);
       if (user) {
         return done(null, sanitizeUser(user));  // this call serializer
       } else {
@@ -113,9 +113,9 @@ try {
   console.error(error);
 }
 
-server.get("/", (req, res) => {
-  res.send(`<h1>E-commerce Project Testing</h1>`);
-});
+// server.get("/", (req, res) => {
+//   res.send(`<h1>E-commerce Project Testing</h1>`);
+// });
 
 server.use((req, res) => {
   res.status(404).send("<h1>404 - Page Not Found</h1>");
