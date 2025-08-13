@@ -27,9 +27,11 @@ opts.jwtFromRequest = cookieExtractor;
 opts.secretOrKey = SECRET_KEY; // TODO : should not be in code;
 
 // middlewares
-server.use(express.static('dist'));
+server.use(express.static("dist"));
 server.use(cookieParser());
-server.use(session({ secret: "keyboad cat", resave: false, saveUninitialized: false }));
+server.use(
+  session({ secret: "keyboad cat", resave: false, saveUninitialized: false })
+);
 server.use(passport.initialize());
 server.use(passport.session());
 server.use(cors());
@@ -49,8 +51,9 @@ passport.use(
     { usernameField: "email", passwordField: "password" },
     async function (email, password, done) {
       try {
-        const user = await User.findOne({ email }).exec();
-        console.log(email, password, {user});
+        const user = await User.findOne({ email });
+        console.log(email," : ", password);
+        console.log({ user });
         if (!user) return done(null, false, { message: "Invalid credentials" });
         crypto.pbkdf2(
           password,
@@ -62,8 +65,9 @@ passport.use(
             if (!crypto.timingSafeEqual(user.password, hashedPassword)) {
               return done(null, false, { message: "Invalid credentials" });
             }
-            const token = jwt.sign({ sub: user._id, role: user.role }, SECRET_KEY); // sub keyword take my 2 hours to solve this (before "sub" it has "id")
-            done(null, { token });
+            // const token = jwt.sign({ sub: user._id, role: user.role }, SECRET_KEY); // sub keyword take my 2 hours to solve this (before "sub" it has "id")
+            // done(null, { token });
+            done(null, {id: user.id, role: user.role});
           }
         );
       } catch (err) {
@@ -81,7 +85,7 @@ passport.use(
       console.log({ jwt_payload });
       const user = await User.findById(jwt_payload.sub);
       if (user) {
-        return done(null, sanitizeUser(user));  // this call serializer
+        return done(null, sanitizeUser(user)); // this call serializer
       } else {
         return done(null, false); // or you could create a new account
       }
@@ -118,7 +122,10 @@ try {
 // });
 
 server.use((req, res) => {
-  res.status(404).send("<h1>404 - Page Not Found</h1>");
+  res.status(404).send(`
+    <h1 style='text-align:center; color:red; margin-top:100px'>
+    404 - Page Not Found</h1>
+  `);
 });
 
 server.listen(8080, () => {

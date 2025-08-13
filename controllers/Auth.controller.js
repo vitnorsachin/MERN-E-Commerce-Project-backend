@@ -26,7 +26,8 @@ export const createUser = async (req, res) => {
             httpOnly: true,
           })
           .status(201)
-          .json(token);
+          // .json(token);
+          .json({id: newUser.id, role: newUser.role});
       }
     );
   } catch (err) {
@@ -45,6 +46,10 @@ export const loginUser = async (req, res) => {
     .json(req.user.token);
 };
 
-export const checkUser = async (req, res) => {
-  res.json({ status: "success", user: req.user });
+export const checkAuth = async (req, res) => {
+  if (req.user) {
+    res.json(req.user);
+  } else {
+    res.sendStatus(401);
+  }
 };
