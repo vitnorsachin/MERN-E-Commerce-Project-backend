@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import express from "express";
 const server = express();
 import mongoose from "mongoose";
@@ -19,18 +21,18 @@ import cartRouter from "./routes/Cart.routes.js";
 import ordersRouter from "./routes/Order.routes.js";
 import User from "./models/User.model.js";
 import { cookieExtractor, isAuth, sanitizeUser } from "./services/common.service.js";
+import path from "path";
 
-const SECRET_KEY = "SECRET_KEY";
 // JWT options
 const opts = {};
 opts.jwtFromRequest = cookieExtractor;
-opts.secretOrKey = SECRET_KEY; // TODO : should not be in code;
+opts.secretOrKey = process.env.JWT_SECRET_KEY; // TODO : should not be in code;
 
 // middlewares
-server.use(express.static("dist"));
+server.use(express.static(path.resolve("dist")));
 server.use(cookieParser());
 server.use(
-  session({ secret: "keyboad cat", resave: false, saveUninitialized: false })
+  session({ secret: process.env.SESSION_KEY, resave: false, saveUninitialized: false })
 );
 server.use(passport.initialize());
 server.use(passport.session());
@@ -65,9 +67,10 @@ passport.use(
             if (!crypto.timingSafeEqual(user.password, hashedPassword)) {
               return done(null, false, { message: "Invalid credentials" });
             }
-            // const token = jwt.sign({ sub: user._id, role: user.role }, SECRET_KEY); // sub keyword take my 2 hours to solve this (before "sub" it has "id")
-            // done(null, { token });
-            done(null, {id: user.id, role: user.role});
+            const token = jwt.sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET_KEY);// sub keyword take my 2 hours to solve this (before "sub" it has "id");
+            // const token = jwt.sign(sanitizeUser(user), process.env.JWT_SECRET_KEY);
+            // console.log("Token: ", token);
+            done(null, {id: user.id, role: user.role, token});
           }
         );
       } catch (err) {
@@ -78,22 +81,37 @@ passport.use(
 );
 
 // JWT Strategies
+// passport.use(
+//   "jwt",
+//   new JwtStrategy(opts, async function (jwt_payload, done) {
+//     try {
+//       console.log({ jwt_payload });
+//       const user = await User.findById(jwt_payload.sub);
+//       if (user) {
+//         return done(null, sanitizeUser(user)); // this call serializer
+//       } else {
+//         return done(null, false); // or you could create a new account
+//       }
+//     } catch (err) {
+//       return done(err, false);
+//     }
+//   })
+// );
 passport.use(
   "jwt",
   new JwtStrategy(opts, async function (jwt_payload, done) {
     try {
       console.log({ jwt_payload });
-      const user = await User.findById(jwt_payload.sub);
-      if (user) {
-        return done(null, sanitizeUser(user)); // this call serializer
-      } else {
-        return done(null, false); // or you could create a new account
-      }
+      const userId = jwt_payload.sub || jwt_payload.id; // support both
+      const user = await User.findById(userId);
+      if (user) return done(null, sanitizeUser(user));
+      return done(null, false);
     } catch (err) {
       return done(err, false);
     }
   })
 );
+
 
 passport.serializeUser(function (user, cb) {
   // this create session variable req.user on being called from callback
@@ -110,16 +128,37 @@ passport.deserializeUser(function (user, cb) {
   });
 });
 
+
+// Payments
+// This is your test secret API key.
+import Stripe from "stripe";
+const stripe = Stripe(process.env.STRIPE_SERVER_KEY);
+server.post('/create-payment-intent', async (req, res) => {
+  const { totalAmount, orderId } = req.body;
+  // Create a PaymentIntent with the order amount and currency
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: totalAmount * 100, // for decimal compensation
+    currency: 'inr',
+    automatic_payment_methods: {
+      enabled: true,
+    },
+    metadata: {
+      orderId,
+    },
+  });
+
+  res.send({
+    clientSecret: paymentIntent.client_secret,
+  });
+});
+
+
 try {
-  await mongoose.connect(`mongodb://localhost:27017/ecommerce`);
+  await mongoose.connect(process.env.MONGODB_URL);
   console.log("Database connected");
 } catch (error) {
   console.error(error);
 }
-
-// server.get("/", (req, res) => {
-//   res.send(`<h1>E-commerce Project Testing</h1>`);
-// });
 
 server.use((req, res) => {
   res.status(404).send(`
@@ -128,6 +167,6 @@ server.use((req, res) => {
   `);
 });
 
-server.listen(8080, () => {
-  console.log(`Server started : http://localhost:8080`);
+server.listen(process.env.PORT, () => {
+  console.log(`Server started : http://localhost:${process.env.PORT}`);
 });

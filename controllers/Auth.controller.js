@@ -1,7 +1,6 @@
 import User from "../models/User.model.js";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-const SECRET_KEY = "SECRET_KEY";
 
 export const createUser = async (req, res) => {
   try {
@@ -18,7 +17,7 @@ export const createUser = async (req, res) => {
 
         const token = jwt.sign(
           { sub: newUser._id, role: newUser.role },// sub keyword take my 2 hours to solve this (before "sub" it has "id")
-          SECRET_KEY
+          process.env.JWT_SECRET_KEY
         );
         res
           .cookie("jwt", token, {
@@ -37,13 +36,14 @@ export const createUser = async (req, res) => {
 };
 
 export const loginUser = async (req, res) => {
+  const user = req.user;
   res
-    .cookie("jwt", req.user.token, {
+    .cookie('jwt', user.token, {
       expires: new Date(Date.now() + 3600000),
       httpOnly: true,
     })
     .status(201)
-    .json(req.user.token);
+    .json({ id: user.id, role: user.role });
 };
 
 export const checkAuth = async (req, res) => {
