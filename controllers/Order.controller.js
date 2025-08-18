@@ -67,7 +67,7 @@ export const fetchAllOrders = async (req, res) => {
   }
 
   const totalOrders = await query.clone().countDocuments();
-  console.log(totalOrders)
+  // console.log(totalOrders)
 
   if (req.query._page && req.query._limit) {
     // pagination = {_page=4&_limit=9}

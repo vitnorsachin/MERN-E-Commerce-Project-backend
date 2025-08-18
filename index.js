@@ -1,14 +1,12 @@
 import dotenv from "dotenv";
-dotenv.config();
 import express from "express";
-const server = express();
 import mongoose from "mongoose";
 import cors from "cors";
 import passport from "passport";
 import session from "express-session";
 import { Strategy as LocalStrategy } from "passport-local";
 import crypto from "crypto";
-import { ExtractJwt, Strategy as JwtStrategy } from "passport-jwt";
+import { Strategy as JwtStrategy } from "passport-jwt";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 
@@ -21,58 +19,56 @@ import cartRouter from "./routes/Cart.routes.js";
 import ordersRouter from "./routes/Order.routes.js";
 import User from "./models/User.model.js";
 import { cookieExtractor, isAuth, sanitizeUser } from "./services/common.service.js";
-import path from "path";
 
-// JWT options
-const opts = {};
-opts.jwtFromRequest = cookieExtractor;
-opts.secretOrKey = process.env.JWT_SECRET_KEY; // TODO : should not be in code;
+import path, { dirname } from "path";
+import { fileURLToPath } from "url";
+import Stripe from "stripe";
 
-// middlewares
-server.use(express.static(path.resolve("dist")));
-server.use(cookieParser());
-server.use(
-  session({ secret: process.env.SESSION_KEY, resave: false, saveUninitialized: false })
-);
-server.use(passport.initialize());
-server.use(passport.session());
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const server = express();
+dotenv.config();
+
+// ---------- Middleware ----------
 server.use(cors());
 server.use(express.json());
-server.use("/products", isAuth(), productsRouter);
-server.use("/brands", isAuth(), brandsRouter);
-server.use("/categories", isAuth(), categoriesRouter);
-server.use("/users", isAuth(), usersRouter);
-server.use("/auth", authRouter);
-server.use("/cart", isAuth(), cartRouter);
-server.use("/orders", isAuth(), ordersRouter);
+server.use(cookieParser());
+server.use(session({ secret: process.env.SESSION_KEY, resave: false, saveUninitialized: false }));
+server.use(passport.initialize());
+server.use(passport.session());
 
-// Passport Strategies
+// ---------- Serve Frontend ----------
+server.use(express.static(path.join(__dirname, "dist")));
+
+// ---------- API Routes ----------
+server.use("/api/products", isAuth(), productsRouter);
+server.use("/api/brands", isAuth(), brandsRouter);
+server.use("/api/categories", isAuth(), categoriesRouter);
+server.use("/api/users", isAuth(), usersRouter);
+server.use("/api/auth", authRouter);
+server.use("/api/cart", isAuth(), cartRouter);
+server.use("/api/orders", isAuth(), ordersRouter);
+
+// ---------- Passport Strategies ----------
 passport.use(
   "local",
   new LocalStrategy(
     { usernameField: "email", passwordField: "password" },
-    async function (email, password, done) {
+    async (email, password, done) => {
       try {
         const user = await User.findOne({ email });
-        console.log(email," : ", password);
-        console.log({ user });
+        // console.log(email," : ", password);
+        // console.log({ user });
         if (!user) return done(null, false, { message: "Invalid credentials" });
-        crypto.pbkdf2(
-          password,
-          user.salt,
-          310000,
-          32,
-          "sha256",
-          async function (err, hashedPassword) {
-            if (!crypto.timingSafeEqual(user.password, hashedPassword)) {
-              return done(null, false, { message: "Invalid credentials" });
-            }
-            const token = jwt.sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET_KEY);// sub keyword take my 2 hours to solve this (before "sub" it has "id");
-            // const token = jwt.sign(sanitizeUser(user), process.env.JWT_SECRET_KEY);
-            // console.log("Token: ", token);
-            done(null, {id: user.id, role: user.role, token});
+
+        crypto.pbkdf2(password, user.salt, 310000, 32, "sha256", (err, hashedPassword) => {
+          if (!crypto.timingSafeEqual(user.password, hashedPassword)) {
+            return done(null, false, { message: "Invalid credentials" });
           }
-        );
+          const token = jwt.sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET_KEY);
+          // console.log("Token: ", token);
+          done(null, { id: user.id, role: user.role, token });
+        });
       } catch (err) {
         return done(err);
       }
@@ -80,29 +76,16 @@ passport.use(
   )
 );
 
-// JWT Strategies
-// passport.use(
-//   "jwt",
-//   new JwtStrategy(opts, async function (jwt_payload, done) {
-//     try {
-//       console.log({ jwt_payload });
-//       const user = await User.findById(jwt_payload.sub);
-//       if (user) {
-//         return done(null, sanitizeUser(user)); // this call serializer
-//       } else {
-//         return done(null, false); // or you could create a new account
-//       }
-//     } catch (err) {
-//       return done(err, false);
-//     }
-//   })
-// );
+const opts = {
+  jwtFromRequest: cookieExtractor,
+  secretOrKey: process.env.JWT_SECRET_KEY,
+};
 passport.use(
   "jwt",
-  new JwtStrategy(opts, async function (jwt_payload, done) {
+  new JwtStrategy(opts, async (jwt_payload, done) => {
     try {
-      console.log({ jwt_payload });
-      const userId = jwt_payload.sub || jwt_payload.id; // support both
+      // console.log({ jwt_payload });
+      const userId = jwt_payload.sub || jwt_payload.id;
       const user = await User.findById(userId);
       if (user) return done(null, sanitizeUser(user));
       return done(null, false);
@@ -112,47 +95,30 @@ passport.use(
   })
 );
 
-
-passport.serializeUser(function (user, cb) {
-  // this create session variable req.user on being called from callback
-  console.log("serialize: ", user);
-  process.nextTick(function () {
-    cb(null, { id: user.id, role: user.role });
-  });
+passport.serializeUser((user, cb) => {
+  // console.log("serialize: ", user);
+  process.nextTick(() => cb(null, { id: user.id, role: user.role }))
 });
-passport.deserializeUser(function (user, cb) {
-  // this changes creates sesssion variable req.user when called from authrized request
-  console.log("deserialize: ", user);
-  process.nextTick(function () {
-    return cb(null, user);
-  });
+passport.deserializeUser((user, cb) => {
+  // console.log("deserialize: ", user); 
+  process.nextTick(() => cb(null, user))
 });
 
-
-// Payments
-// This is your test secret API key.
-import Stripe from "stripe";
+// ---------- Payments ----------
 const stripe = Stripe(process.env.STRIPE_SERVER_KEY);
-server.post('/create-payment-intent', async (req, res) => {
+server.post("/api/create-payment-intent", async (req, res) => {
   const { totalAmount, orderId } = req.body;
-  // Create a PaymentIntent with the order amount and currency
   const paymentIntent = await stripe.paymentIntents.create({
-    amount: totalAmount * 100, // for decimal compensation
-    currency: 'inr',
-    automatic_payment_methods: {
-      enabled: true,
-    },
-    metadata: {
-      orderId,
-    },
+    amount: totalAmount * 100,
+    currency: "inr",
+    automatic_payment_methods: { enabled: true },
+    metadata: { orderId },
   });
 
-  res.send({
-    clientSecret: paymentIntent.client_secret,
-  });
+  res.send({ clientSecret: paymentIntent.client_secret });
 });
 
-
+// ---------- MongoDB ----------
 try {
   await mongoose.connect(process.env.MONGODB_URL);
   console.log("Database connected");
@@ -160,6 +126,15 @@ try {
   console.error(error);
 }
 
+// ---------- SPA Catch-All (Fix for refresh issues) ----------
+server.get(
+  /^(?!\/api).*/, // Match everything except paths starting with /api
+  (req, res) => {
+    res.sendFile(path.join(__dirname, "dist", "index.html"));
+  }
+);
+
+// ---------- 404 Handler ----------
 server.use((req, res) => {
   res.status(404).send(`
     <h1 style='text-align:center; color:red; margin-top:100px'>
@@ -167,6 +142,7 @@ server.use((req, res) => {
   `);
 });
 
+// ---------- Start Server ----------
 server.listen(process.env.PORT, () => {
-  console.log(`Server started : http://localhost:${process.env.PORT}`);
+  console.log(`Server started: http://localhost:${process.env.PORT}`);
 });
